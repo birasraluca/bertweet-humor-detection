@@ -124,7 +124,7 @@ bertweet-humor-detection/
 │       └── main.jsx
 │
 ├── notebooks/
-│   └── humor_detection_training.ipynb
+│   └── STAI_TRAIN_MODEL.ipynb
 │
 ├── results/
 │   └── confusion_matrix_bertweet.png
