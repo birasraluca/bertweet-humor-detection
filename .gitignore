@@ -6,7 +6,7 @@ venv/
 .env
 
 # Model files
-backend/model/bertweet_humor_model/
+backend/model/
 *.bin
 *.safetensors
 *.pt
