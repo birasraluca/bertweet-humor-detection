@@ -27,7 +27,7 @@ class BertweetMultiTaskModel(PreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.bertweet = AutoModel.from_config(config)
+        self.bertweet = AutoModel.from_pretrained(BASE_MODEL_NAME, config=config)
         hidden_size = config.hidden_size
         dropout_prob = getattr(config, "hidden_dropout_prob", 0.1)
 
@@ -66,7 +66,13 @@ def load_model():
 
     model = BertweetMultiTaskModel(config)
     state_path = os.path.join(MODEL_DIR, "multitask_model_state.pt")
-    model.load_state_dict(torch.load(state_path, map_location="cpu"))
+    state_dict = torch.load(state_path, map_location="cpu")
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+
+    print("Missing keys:", missing)
+    print("Unexpected keys:", unexpected)
+
+    model.eval()
     model.eval()
     return tokenizer, model
 

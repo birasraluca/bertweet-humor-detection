@@ -5,9 +5,9 @@ const API_URL = "http://127.0.0.1:5000/predict";
 
 const exampleTexts = [
   "I used to play piano by ear, but now I use my hands.",
-  "The meeting will start tomorrow at 10 AM.",
-  "I told my wife she was drawing her eyebrows too high. She looked surprised.",
-  "The report was submitted before the deadline."
+  "The database backup completed successfully.",
+  "My cat looked at the expensive food I bought and decided starvation was more dignified.",
+  "I told my computer I needed a break, and now it won't stop sending me vacation ads."
 ];
 
 function App() {
@@ -160,6 +160,15 @@ function App() {
                 </strong>
               </div>
 
+              <div className="bar">
+                <div
+                  className="bar-fill not-humorous-fill"
+                  style={{
+                    width: formatPercent(result.not_humorous_probability)
+                  }}
+                />
+              </div>
+
               <div className="extra-metrics">
                 <div className="metric-card">
                   <span>Humor rating</span>
@@ -186,14 +195,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="bar">
-                <div
-                  className="bar-fill not-humorous-fill"
-                  style={{
-                    width: formatPercent(result.not_humorous_probability)
-                  }}
-                />
-              </div>
+              
             </div>
 
             <p className="note">
