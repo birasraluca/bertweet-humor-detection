@@ -47,7 +47,8 @@ function App() {
       setResult(data);
     } catch (err) {
       setError(
-        "Could not connect to the backend. Make sure the Flask API is running on port 5000."
+        err.message ||
+          "Could not connect to the backend. Make sure the Flask API is running on port 5000."
       );
     } finally {
       setLoading(false);
@@ -78,8 +79,8 @@ function App() {
         <h1>Laugh Detector</h1>
 
         <p className="subtitle">
-          Enter a short English text and the model will predict whether it is
-          humorous or not.
+          Enter a short English text and the model will predict humor, humor intensity,
+          offensiveness, and whether the humor may be controversial.
         </p>
 
         <div className="input-area">
@@ -157,6 +158,32 @@ function App() {
                 <strong>
                   {formatPercent(result.not_humorous_probability)}
                 </strong>
+              </div>
+
+              <div className="extra-metrics">
+                <div className="metric-card">
+                  <span>Humor rating</span>
+                  <strong>
+                    {result.label === "Humorous"
+                      ? `${result.humor_rating_0_to_5} / 5`
+                      : "N/A"}
+                  </strong>
+                </div>
+
+                <div className="metric-card">
+                  <span>Offense rating</span>
+                  <strong>{result.offense_rating_0_to_5} / 5</strong>
+                </div>
+
+                <div className="metric-card">
+                  <span>Controversial</span>
+                  <strong>{result.controversial ? "Yes" : "No"}</strong>
+                </div>
+
+                <div className="metric-card">
+                  <span>Controversy probability</span>
+                  <strong>{formatPercent(result.controversy_probability)}</strong>
+                </div>
               </div>
 
               <div className="bar">
