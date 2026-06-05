@@ -1,149 +1,273 @@
-# BERTweet Humor Detection
+# BERTweet Multi-Task Humor Detection
 
-Automatic humor detection in short English texts using classical machine learning baselines and a fine-tuned BERTweet transformer model.
+This project is a demo web API for a fine-tuned **BERTweet-based multi-task humor detection model**.
 
-This project was developed for a university NLP assignment on humor and jokes. The system classifies short English texts as either **humorous** or **not humorous** and provides prediction confidence scores through a simple web demo.
+The model predicts whether a given text is humorous and also provides additional humor-related outputs, including:
+
+* humor classification: `Humorous` / `Not humorous`
+* prediction confidence
+* humor probability scores
+* humor rating from 0 to 5
+* offense rating from 0 to 5
+* controversy prediction
+
+The project includes a Flask backend that loads the trained model and exposes a simple `/predict` endpoint for inference.
+
+---
 
 ## Project Overview
 
-The project explores automatic humor detection as a binary text classification task.
+Humor detection is a Natural Language Processing task where the goal is to determine whether a piece of text contains humor. In this project, a transformer-based model was fine-tuned using BERTweet, a RoBERTa-based language model pretrained on English tweets.
 
-Given an input sentence, the system predicts whether the text is humorous or not. The model was trained and evaluated in Google Colab, then integrated into a local web application consisting of:
+Instead of training only a binary classifier, this project uses a **multi-task learning** approach. The model shares the same BERTweet encoder and has multiple task-specific heads:
 
-* a Flask backend API
-* a React frontend interface
-* a fine-tuned BERTweet model for prediction
+1. **Humor classification head**
+   Predicts whether the text is humorous or not.
 
-The final demo allows the user to enter a sentence and receive:
+2. **Humor rating regression head**
+   Predicts how humorous the text is on a scale from 0 to 5.
 
-* predicted label: `Humorous` or `Not humorous`
-* confidence score
-* probability for each class
+3. **Offense rating regression head**
+   Predicts the offensiveness level of the text on a scale from 0 to 5.
 
-## Dataset
+4. **Controversy classification head**
+   Predicts whether the humor may be controversial.
 
-The dataset used is the **SemEval 2021 Task 7: HaHackathon - Detecting and Rating Humor and Offense** dataset.
+This allows the model to learn related humor characteristics together instead of treating humor detection as a completely isolated binary classification task.
 
-The project uses the binary humor detection label:
+---
 
-* `0` = not humorous
-* `1` = humorous
+## Features
 
-Only the text and humor label were used for the main classification task.
+* Fine-tuned BERTweet model for humor detection
+* Multi-task architecture with classification and regression heads
+* Flask REST API for inference
+* JSON-based `/predict` endpoint
+* CORS enabled for frontend/demo integration
+* Safe model loading using `strict=True`
+* Local model weights loaded from exported checkpoint
+* Correct BERTweet tokenizer loading from the original Hugging Face model source
 
-Dataset columns include:
+---
 
-* `id`
-* `text`
-* `is_humor`
-* `humor_rating`
-* `humor_controversy`
-* `offense_rating`
+## Tech Stack
 
-For this project, the main columns used were:
+* Python
+* PyTorch
+* Hugging Face Transformers
+* BERTweet
+* Flask
+* Flask-CORS
 
-```text
-text
-is_humor
-```
+---
 
-## Models
 
-Three models were explored:
+## Model Architecture
 
-| Model                                 | Description                                            |
-| ------------------------------------- | ------------------------------------------------------ |
-| TF-IDF + Logistic Regression          | Classical machine learning baseline                    |
-| TF-IDF + Balanced Logistic Regression | Baseline with class weighting to reduce imbalance bias |
-| Fine-tuned BERTweet                   | Transformer-based model used as the final model        |
+The model uses `vinai/bertweet-base` as the shared encoder.
 
-The final application uses the fine-tuned **BERTweet** model because it achieved the best validation results.
-
-## Results
-
-### Logistic Regression Baseline
-
-| Metric    |  Score |
-| --------- | -----: |
-| Accuracy  | 0.8288 |
-| Precision | 0.8128 |
-| Recall    | 0.9381 |
-| F1-score  | 0.8710 |
-
-### Balanced Logistic Regression
-
-| Metric    |  Score |
-| --------- | -----: |
-| Accuracy  | 0.8275 |
-| Precision | 0.8769 |
-| Recall    | 0.8377 |
-| F1-score  | 0.8568 |
-
-### Fine-tuned BERTweet
-
-| Metric    |  Score |
-| --------- | -----: |
-| Accuracy  | 0.9556 |
-| Precision | 0.9683 |
-| Recall    | 0.9594 |
-| F1-score  | 0.9638 |
-
-Classification report for BERTweet:
+On top of the encoder, the model defines four heads:
 
 ```text
-              precision    recall  f1-score   support
-
-Not humorous       0.94      0.95      0.94       614
-    Humorous       0.97      0.96      0.96       986
-
-    accuracy                           0.96      1600
-   macro avg       0.95      0.95      0.95      1600
-weighted avg       0.96      0.96      0.96      1600
+BERTweet encoder
+│
+├── humor classification head
+├── humor controversy classification head
+├── humor rating regression head
+└── offense rating regression head
 ```
 
-The transformer model significantly outperformed the classical baselines, achieving approximately **95.56% accuracy** and **96.38% F1-score** for the humorous class.
+The model outputs:
 
-## Project Structure
+```python
+(
+    logits_humor,
+    pred_humor_rating,
+    pred_offense_rating,
+    logits_controversy,
+)
+```
+
+Where:
+
+* `logits_humor` is used for the humorous / not humorous prediction
+* `pred_humor_rating` is a regression output for humor intensity
+* `pred_offense_rating` is a regression output for offensive content intensity
+* `logits_controversy` is used for the controversial / not controversial prediction
+
+---
+
+## Important Model Loading Note
+
+The model weights are loaded locally from:
 
 ```text
-bertweet-humor-detection/
-│
-├── backend/
-│   ├── app.py
-│   ├── requirements.txt
-│   └── model/
-│       └── bertweet_humor_model/
-│
-├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── src/
-│       ├── App.jsx
-│       ├── App.css
-│       └── main.jsx
-│
-├── notebooks/
-│   └── STAI_TRAIN_MODEL.ipynb
-│
-├── results/
-│   └── confusion_matrix_bertweet.png
-│
-├── .gitignore
-└── README.md
+backend/model/bertweet_multitask_humor_model/multitask_model_state.pt
 ```
 
-## Backend
+However, the tokenizer should be loaded from the original BERTweet model source:
 
-The backend is implemented using Flask.
+```python
+vinai/bertweet-base
+```
 
-It exposes a prediction endpoint:
+This is important because loading the tokenizer from the exported local folder may produce different token IDs and therefore incorrect predictions.
+
+The backend uses:
+
+```python
+AutoTokenizer.from_pretrained(
+    "vinai/bertweet-base",
+    use_fast=False,
+    normalization=True,
+)
+```
+
+The model weights are loaded with:
+
+```python
+model.load_state_dict(state_dict, strict=True)
+```
+
+Using `strict=True` ensures that the model fails immediately if the saved weights do not match the architecture. This prevents silent loading errors.
+
+---
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/birasraluca/bertweet-humor-detection.git
+cd bertweet-humor-detection
+```
+
+### 2. Create and activate a virtual environment
+
+On Windows:
+
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate
+```
+
+On macOS/Linux:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+Depending on the environment, additional packages may be needed for training, such as:
+
+```text
+datasets
+evaluate
+scikit-learn
+accelerate
+```
+
+---
+
+## Model Setup
+
+After training the model in the notebook, place the exported model folder inside:
+
+```text
+backend/model/
+```
+
+The final path should look like:
+
+```text
+backend/model/bertweet_multitask_humor_model/
+```
+
+This folder should contain at least:
+
+```text
+config.json
+multitask_model_state.pt
+model_info.json
+bertweet_multitask_model.py
+```
+
+The most important file is:
+
+```text
+multitask_model_state.pt
+```
+
+This contains the fine-tuned model weights.
+
+---
+
+## Running the Backend
+
+From the backend directory:
+
+```bash
+cd backend
+python app.py
+```
+
+The Flask server should start on:
+
+```text
+http://127.0.0.1:5000
+```
+
+If the model loads successfully, the terminal should print information similar to:
+
+```text
+Loaded model from: backend/model/bertweet_multitask_humor_model
+Loaded tokenizer from: vinai/bertweet-base
+State file: backend/model/bertweet_multitask_humor_model/multitask_model_state.pt
+```
+
+---
+
+## API Endpoints
+
+### Health Check
+
+```http
+GET /
+```
+
+Example response:
+
+```json
+{
+  "message": "Multi-task Humor Detection API is running.",
+  "model": "Multi-task fine-tuned BERTweet",
+  "endpoint": "/predict",
+  "outputs": [
+    "humor label",
+    "confidence",
+    "humor rating",
+    "offense rating",
+    "controversy prediction"
+  ]
+}
+```
+
+---
+
+### Predict
 
 ```http
 POST /predict
 ```
 
-Example request:
+Request body:
 
 ```json
 {
@@ -157,169 +281,270 @@ Example response:
 {
   "input_text": "I used to play piano by ear, but now I use my hands.",
   "label": "Humorous",
-  "confidence": 0.9981,
-  "not_humorous_probability": 0.0019,
-  "humorous_probability": 0.9981
+  "confidence": 0.98,
+  "not_humorous_probability": 0.02,
+  "humorous_probability": 0.98,
+  "humor_rating_0_to_5": 2.85,
+  "offense_rating_0_to_5": 0.12,
+  "controversial": false,
+  "controversy_probability": 0.21
 }
 ```
 
-## Frontend
+The exact values may differ depending on the trained model checkpoint.
 
-The frontend is implemented using React and Vite.
+---
 
-The interface allows the user to:
+## Testing with cURL
 
-* enter a custom sentence
-* run humor detection
-* view the predicted class
-* view the confidence score
-* view both class probabilities
-
-## How to Run the Project
-
-### 1. Clone the repository
+After starting the Flask server, test the API with:
 
 ```bash
-git clone https://github.com/birasraluca/bertweet-humor-detection.git
-cd bertweet-humor-detection
-```
-
-## 2. Add the trained model
-
-The fine-tuned BERTweet model should be placed in:
-
-```text
-backend/model/bertweet_humor_model/
-```
-
-The folder should contain files such as:
-
-```text
-config.json
-model.safetensors
-tokenizer_config.json
-special_tokens_map.json
-vocab.txt
-bpe.codes
-```
-
-The model folder is not included in the repository because transformer model files can be large.
-
-## 3. Run the backend
-
-Open a terminal in the project root:
-
-```bash
-cd backend
-python -m venv .venv
-```
-
-Activate the virtual environment.
-
-On Windows:
-
-```bash
-.venv\Scripts\activate
+curl -X POST http://127.0.0.1:5000/predict ^
+  -H "Content-Type: application/json" ^
+  -d "{\"text\":\"I used to play piano by ear, but now I use my hands.\"}"
 ```
 
 On macOS/Linux:
 
 ```bash
-source .venv/bin/activate
+curl -X POST http://127.0.0.1:5000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"text":"I used to play piano by ear, but now I use my hands."}'
 ```
 
-Install dependencies:
+Another example:
 
 ```bash
-pip install -r requirements.txt
+curl -X POST http://127.0.0.1:5000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"text":"The database backup completed successfully."}'
 ```
 
-Run the Flask server:
+Expected behavior:
 
-```bash
-python app.py
-```
+* jokes and humorous sentences should usually return `Humorous`
+* plain factual sentences should usually return `Not humorous`
 
-The backend should start at:
+---
 
-```text
-http://127.0.0.1:5000
-```
+## Example Predictions
 
-## 4. Run the frontend
-
-Open a second terminal in the project root:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend should start at:
-
-```text
-http://localhost:5173
-```
-
-## Example Inputs
-
-Humorous example:
+Example humorous input:
 
 ```text
 I used to play piano by ear, but now I use my hands.
 ```
 
-Expected output:
+Expected label:
 
 ```text
 Humorous
 ```
 
-Non-humorous example:
+Example non-humorous input:
 
 ```text
-The meeting will start tomorrow at 10 AM.
+The database backup completed successfully.
 ```
 
-Expected output:
+Expected label:
 
 ```text
 Not humorous
 ```
 
-## Notes on Confidence Scores
+Example humorous input:
 
-The confidence score represents the model's predicted probability for the selected class. It should not be interpreted as an objective measurement of how funny a sentence is.
+```text
+My cat looked at the expensive food I bought and decided starvation was more dignified.
+```
 
-Humor is subjective and context-dependent, so even a high-confidence prediction can still be incorrect.
+Expected label:
+
+```text
+Humorous
+```
+
+---
+
+## Training Notebook
+
+The training notebook contains the complete model training and export pipeline.
+
+The notebook performs the following steps:
+
+1. Loads and preprocesses the humor dataset
+2. Tokenizes text using BERTweet
+3. Defines the custom multi-task BERTweet model
+4. Trains the model
+5. Evaluates the model
+6. Saves the model configuration and weights
+7. Reloads the exported model
+8. Compares original and reloaded predictions
+9. Verifies that the reloaded model produces matching results
+10. Exports the final model folder for backend use
+
+A key validation step compares predictions before and after reload. This ensures that the downloaded model is safe to use in the backend.
+
+The notebook should only export the model after the original and reloaded predictions match.
+
+---
+
+## Reload Validation
+
+Before using the model in the backend, the notebook verifies that the saved model reloads correctly.
+
+The validation checks that:
+
+* the model loads with `strict=True`
+* original and reloaded model weights match
+* tokenized input IDs match
+* original and reloaded predictions match
+
+This is important because a model can appear to load successfully while still producing incorrect predictions if the tokenizer or architecture differs.
+
+---
+
+## Common Issues and Fixes
+
+### 1. Reloaded predictions are very different from original predictions
+
+Possible cause:
+
+```python
+AutoTokenizer.from_pretrained(EXPORT_DIR)
+```
+
+Fix:
+
+```python
+AutoTokenizer.from_pretrained(
+    "vinai/bertweet-base",
+    use_fast=False,
+    normalization=True,
+)
+```
+
+The tokenizer must produce the same token IDs as during training.
+
+---
+
+### 2. Model loads but predictions are bad
+
+Possible causes:
+
+* wrong model folder
+* wrong checkpoint file
+* tokenizer loaded from the wrong path
+* model architecture differs from the training architecture
+* model loaded with `strict=False`
+
+Fixes:
+
+* confirm that the backend points to the correct folder
+* confirm that `multitask_model_state.pt` is the final tested export
+* load tokenizer from `vinai/bertweet-base`
+* use the same custom model class as in training
+* always use:
+
+```python
+model.load_state_dict(state_dict, strict=True)
+```
+
+---
+
+### 3. Error: missing or unexpected keys when loading state dict
+
+This means the saved checkpoint does not match the current model architecture.
+
+Do not use `strict=False` to ignore this.
+
+Instead, make sure that:
+
+* the backend model class matches the training model class
+* the correct checkpoint is being loaded
+* the exported model folder is the one that passed reload validation
+
+---
+
+### 4. Flask returns `"Request body must be valid JSON."`
+
+Make sure the request uses:
+
+```http
+Content-Type: application/json
+```
+
+and that the body is valid JSON:
+
+```json
+{
+  "text": "Example text here"
+}
+```
+
+---
+
+### 5. Flask returns `"Please provide a non-empty text field."`
+
+The request body must contain a non-empty string under the `text` key:
+
+```json
+{
+  "text": "This is an example sentence."
+}
+```
+
+---
+
+## Notes on Inference
+
+The backend tokenizes input text with:
+
+```python
+truncation=True
+padding="max_length"
+max_length=128
+```
+
+The model is used in evaluation mode:
+
+```python
+model.eval()
+```
+
+Inference is performed without gradient computation:
+
+```python
+with torch.no_grad():
+    outputs = model(**inputs)
+```
+
+This makes predictions faster and avoids unnecessary memory usage.
+
+---
 
 ## Limitations
 
-Although the BERTweet model achieved strong validation performance, the system still has limitations:
+This project is a demo application and should not be treated as a perfect humor understanding system.
 
-* humor is subjective and culturally dependent
-* the model only works with English text
-* the model was trained on short texts, so long paragraphs may be less reliable
-* the confidence score is a model probability, not a true humor rating
-* some serious sentences may be misclassified if they resemble joke structures
-* offensive or controversial humor may affect predictions
+Possible limitations:
 
-## Technologies Used
+* humor is subjective and context-dependent
+* sarcasm and irony can be difficult to detect
+* short factual sentences may sometimes be misclassified
+* offensive humor and controversial humor are especially nuanced
+* the model performance depends strongly on the training dataset
+* the model is trained on English text and may not perform well on other languages
 
-* Python
-* Flask
-* PyTorch
-* Hugging Face Transformers
-* BERTweet
-* scikit-learn
-* React
-* Vite
-* CSS
+---
 
-## References
+## Future Improvements
 
-* SemEval 2021 Task 7: HaHackathon - Detecting and Rating Humor and Offense
-* BERTweet: A pre-trained language model for English Tweets
-* Hugging Face Transformers documentation
-* scikit-learn documentation
+Possible future improvements include:
+
+* adding batch prediction support
+* improving the controversy prediction task
+* experimenting with different transformer models
+* adding confidence thresholds for uncertain predictions
