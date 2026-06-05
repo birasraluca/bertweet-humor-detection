@@ -67,10 +67,11 @@ def load_model():
     model = BertweetMultiTaskModel(config)
     state_path = os.path.join(MODEL_DIR, "multitask_model_state.pt")
     state_dict = torch.load(state_path, map_location="cpu")
-    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    model.load_state_dict(state_dict, strict=True)
 
-    print("Missing keys:", missing)
-    print("Unexpected keys:", unexpected)
+    print("Loaded model from:", MODEL_DIR)
+    print("State file:", state_path)
+    print("Humor head sample:", model.humor_classifier.weight[0, :5])
 
     model.eval()
     model.eval()
