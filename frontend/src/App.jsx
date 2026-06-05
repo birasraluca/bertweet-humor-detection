@@ -5,9 +5,9 @@ const API_URL = "http://127.0.0.1:5000/predict";
 
 const exampleTexts = [
   "I used to play piano by ear, but now I use my hands.",
+  "I told my computer I needed a break, and now it won't stop sending me vacation ads.",
   "The database backup completed successfully.",
-  "My cat looked at the expensive food I bought and decided starvation was more dignified.",
-  "I told my computer I needed a break, and now it won't stop sending me vacation ads."
+  "The meeting will start tomorrow at 10 AM."
 ];
 
 function App() {

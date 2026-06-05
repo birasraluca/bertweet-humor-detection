@@ -1,11 +1,11 @@
 """
 Standalone inference helper for the multi-task BERTweet humor model.
 
-Expected model folder after running the notebook:
+Expected model folder:
 backend/model/bertweet_multitask_humor_model/
     config.json
-    tokenizer files
     multitask_model_state.pt
+    model_info.json optional
 """
 
 import os
@@ -17,9 +17,11 @@ import torch.nn.functional as F
 from transformers import AutoConfig, AutoModel, AutoTokenizer, PreTrainedModel
 from transformers.modeling_outputs import SequenceClassifierOutput
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "model", "bertweet_multitask_humor_model")
 BASE_MODEL_NAME = "vinai/bertweet-base"
+MAX_LENGTH = 128
 
 
 class BertweetMultiTaskModel(PreTrainedModel):
@@ -27,7 +29,11 @@ class BertweetMultiTaskModel(PreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.bertweet = AutoModel.from_pretrained(BASE_MODEL_NAME, config=config)
+
+        # Use from_config for inference loading.
+        # The trained weights are loaded from multitask_model_state.pt below.
+        self.bertweet = AutoModel.from_config(config)
+
         hidden_size = config.hidden_size
         dropout_prob = getattr(config, "hidden_dropout_prob", 0.1)
 
@@ -37,10 +43,17 @@ class BertweetMultiTaskModel(PreTrainedModel):
         self.humor_regressor = nn.Linear(hidden_size, 1)
         self.offense_regressor = nn.Linear(hidden_size, 1)
 
-        self.post_init()
+        # IMPORTANT:
+        # Do NOT call self.post_init().
+        # It can reinitialize weights / cause reload mismatch for this custom model.
 
     def forward(self, input_ids=None, attention_mask=None, **kwargs):
-        outputs = self.bertweet(input_ids=input_ids, attention_mask=attention_mask, **kwargs)
+        outputs = self.bertweet(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            **kwargs,
+        )
+
         pooled = outputs.last_hidden_state[:, 0, :]
         pooled = self.dropout(pooled)
 
@@ -50,31 +63,53 @@ class BertweetMultiTaskModel(PreTrainedModel):
         pred_offense_rating = self.offense_regressor(pooled).squeeze(-1)
 
         return SequenceClassifierOutput(
-            logits=(logits_humor, pred_humor_rating, pred_offense_rating, logits_controversy)
+            logits=(
+                logits_humor,
+                pred_humor_rating,
+                pred_offense_rating,
+                logits_controversy,
+            )
         )
 
 
 def load_model():
-    if not os.path.exists(MODEL_DIR):
+    if not os.path.isdir(MODEL_DIR):
         raise FileNotFoundError(
             f"Model directory not found: {MODEL_DIR}. "
-            "Run notebooks/STAI_MULTITASK_BERTWEET.ipynb and place the exported folder here."
+            "Place the exported bertweet_multitask_humor_model folder there."
+        )
+
+    state_path = os.path.join(MODEL_DIR, "multitask_model_state.pt")
+    if not os.path.isfile(state_path):
+        raise FileNotFoundError(
+            f"State dict not found: {state_path}. "
+            "Expected multitask_model_state.pt inside the model folder."
         )
 
     config = AutoConfig.from_pretrained(MODEL_DIR)
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR, use_fast=False, normalization=True)
+
+    # IMPORTANT:
+    # Load tokenizer from original BERTweet source, not MODEL_DIR.
+    # Loading tokenizer from the local export produced different token IDs.
+    tokenizer = AutoTokenizer.from_pretrained(
+        BASE_MODEL_NAME,
+        use_fast=False,
+        normalization=True,
+    )
 
     model = BertweetMultiTaskModel(config)
-    state_path = os.path.join(MODEL_DIR, "multitask_model_state.pt")
+
     state_dict = torch.load(state_path, map_location="cpu")
     model.load_state_dict(state_dict, strict=True)
 
-    print("Loaded model from:", MODEL_DIR)
-    print("State file:", state_path)
-    print("Humor head sample:", model.humor_classifier.weight[0, :5])
+    model.cpu()
+    model.eval()
 
-    model.eval()
-    model.eval()
+    print("Loaded model from:", MODEL_DIR)
+    print("Loaded tokenizer from:", BASE_MODEL_NAME)
+    print("State file:", state_path)
+    print("Humor head sample:", model.humor_classifier.weight[0, :5].detach().cpu())
+
     return tokenizer, model
 
 
@@ -86,16 +121,18 @@ def predict_multitask(text: str) -> Dict[str, object]:
         raise ValueError("Input text cannot be empty.")
 
     inputs = tokenizer(
-        text,
+        text.strip(),
         return_tensors="pt",
         truncation=True,
-        padding=True,
-        max_length=128,
+        padding="max_length",
+        max_length=MAX_LENGTH,
     )
 
     with torch.no_grad():
         outputs = model(**inputs)
+
         logits_humor, pred_humor_rating, pred_offense_rating, logits_controversy = outputs.logits
+
         humor_probs = F.softmax(logits_humor, dim=-1)[0]
         controversy_probs = F.softmax(logits_controversy, dim=-1)[0]
 
@@ -104,6 +141,7 @@ def predict_multitask(text: str) -> Dict[str, object]:
 
     humor_score = float(pred_humor_rating[0].item())
     offense_score = float(pred_offense_rating[0].item())
+
     humor_score = max(0.0, min(5.0, humor_score))
     offense_score = max(0.0, min(5.0, offense_score))
 
@@ -123,6 +161,7 @@ if __name__ == "__main__":
     examples = [
         "I used to play piano by ear, but now I use my hands.",
         "The database backup completed successfully.",
+        "The meeting will start tomorrow at 10 AM.",
         "My cat looked at the expensive food I bought and decided starvation was more dignified.",
     ]
 
