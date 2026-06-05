@@ -35,6 +35,10 @@ Instead of training only a binary classifier, this project uses a **multi-task l
 
 This allows the model to learn related humor characteristics together instead of treating humor detection as a completely isolated binary classification task.
 
+<img width="596" height="455" alt="image" src="https://github.com/user-attachments/assets/c297b830-0b62-4ab3-a8d7-54d07f6dc0c5" />
+<img width="703" height="864" alt="image" src="https://github.com/user-attachments/assets/e3c993bb-f4a7-4bb3-83a6-dba2036542d8" />
+<img width="689" height="859" alt="image" src="https://github.com/user-attachments/assets/0468204c-a229-4ca2-9c16-3700342b196c" />
+
 ---
 
 ## Features
